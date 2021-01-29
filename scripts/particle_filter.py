@@ -20,25 +20,21 @@ from copy import deepcopy
 from random import randint, random
 
 
-
 def get_yaw_from_pose(p):
     """ A helper function that takes in a Pose object (geometry_msgs) and returns yaw"""
 
-    yaw = (euler_from_quaternion([
-            p.orientation.x,
-            p.orientation.y,
-            p.orientation.z,
-            p.orientation.w])
-            [2])
+    yaw = euler_from_quaternion(
+        [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w]
+    )[2]
 
     return yaw
 
 
 def draw_random_sample(choices, probabilities, n):
-    """ Return a random sample of n elements from the set choices with the specified probabilities
-        choices: the values to sample from represented as a list
-        probabilities: the probability of selecting each element in choices represented as a list
-        n: the number of samples
+    """Return a random sample of n elements from the set choices with the specified probabilities
+    choices: the values to sample from represented as a list
+    probabilities: the probability of selecting each element in choices represented as a list
+    n: the number of samples
     """
     values = np.array(range(len(choices)))
     probs = np.array(probabilities)
@@ -51,7 +47,6 @@ def draw_random_sample(choices, probabilities, n):
 
 
 class Particle:
-
     def __init__(self, pose, w):
 
         # particle pose (Pose object from geometry_msgs)
@@ -61,18 +56,14 @@ class Particle:
         self.w = w
 
 
-
 class ParticleFilter:
-
-
     def __init__(self):
 
         # once everything is setup initialized will be set to true
-        self.initialized = False        
-
+        self.initialized = False
 
         # initialize this particle filter node
-        rospy.init_node('turtlebot3_particle_filter')
+        rospy.init_node("turtlebot3_particle_filter")
 
         # set the topic names and frame names
         self.base_frame = "base_footprint"
@@ -84,7 +75,6 @@ class ParticleFilter:
         self.map = OccupancyGrid()
         self.occupancy_field = None
 
-
         # the number of particles used in the particle filter
         self.num_particles = 10000
 
@@ -95,19 +85,22 @@ class ParticleFilter:
         self.robot_estimate = Pose()
 
         # set threshold values for linear and angular movement before we preform an update
-        self.lin_mvmt_threshold = 0.2        
-        self.ang_mvmt_threshold = (np.pi / 6)
+        self.lin_mvmt_threshold = 0.2
+        self.ang_mvmt_threshold = np.pi / 6
 
         self.odom_pose_last_motion_update = None
-
 
         # Setup publishers and subscribers
 
         # publish the current particle cloud
-        self.particles_pub = rospy.Publisher("particle_cloud", PoseArray, queue_size=10)
+        self.particles_pub = rospy.Publisher(
+            "particle_cloud", PoseArray, queue_size=10
+        )
 
         # publish the estimated robot pose
-        self.robot_estimate_pub = rospy.Publisher("estimated_robot_pose", PoseStamped, queue_size=10)
+        self.robot_estimate_pub = rospy.Publisher(
+            "estimated_robot_pose", PoseStamped, queue_size=10
+        )
 
         # subscribe to the map server
         rospy.Subscriber(self.map_topic, OccupancyGrid, self.get_map)
@@ -119,43 +112,37 @@ class ParticleFilter:
         self.tf_listener = TransformListener()
         self.tf_broadcaster = TransformBroadcaster()
 
-
         # intialize the particle cloud
         self.initialize_particle_cloud()
 
         self.initialized = True
 
-
-
     def get_map(self, data):
 
         self.map = data
-
+        print(data)
         self.occupancy_field = OccupancyField(data)
 
-    
-
     def initialize_particle_cloud(self):
-        
-        # TODO
 
+        # TODO
 
         self.normalize_particles()
 
         self.publish_particle_cloud()
 
-
     def normalize_particles(self):
         # make all the particle weights sum to 1.0
-        
+
         # TODO
-
-
+        pass
 
     def publish_particle_cloud(self):
 
         particle_cloud_pose_array = PoseArray()
-        particle_cloud_pose_array.header = Header(stamp=rospy.Time.now(), frame_id=self.map_topic)
+        particle_cloud_pose_array.header = Header(
+            stamp=rospy.Time.now(), frame_id=self.map_topic
+        )
         particle_cloud_pose_array.poses
 
         for part in self.particle_cloud:
@@ -163,52 +150,61 @@ class ParticleFilter:
 
         self.particles_pub.publish(particle_cloud_pose_array)
 
-
-
-
     def publish_estimated_robot_pose(self):
 
         robot_pose_estimate_stamped = PoseStamped()
         robot_pose_estimate_stamped.pose = self.robot_estimate
-        robot_pose_estimate_stamped.header = Header(stamp=rospy.Time.now(), frame_id=self.map_topic)
+        robot_pose_estimate_stamped.header = Header(
+            stamp=rospy.Time.now(), frame_id=self.map_topic
+        )
         self.robot_estimate_pub.publish(robot_pose_estimate_stamped)
-
-
 
     def resample_particles(self):
 
         # TODO
-
-
+        pass
 
     def robot_scan_received(self, data):
 
         # wait until initialization is complete
-        if not(self.initialized):
+        if not (self.initialized):
             return
 
         # we need to be able to transfrom the laser frame to the base frame
-        if not(self.tf_listener.canTransform(self.base_frame, data.header.frame_id, data.header.stamp)):
+        if not (
+            self.tf_listener.canTransform(
+                self.base_frame, data.header.frame_id, data.header.stamp
+            )
+        ):
             return
 
         # wait for a little bit for the transform to become avaliable (in case the scan arrives
-        # a little bit before the odom to base_footprint transform was updated) 
-        self.tf_listener.waitForTransform(self.base_frame, self.odom_frame, data.header.stamp, rospy.Duration(0.5))
-        if not(self.tf_listener.canTransform(self.base_frame, data.header.frame_id, data.header.stamp)):
+        # a little bit before the odom to base_footprint transform was updated)
+        self.tf_listener.waitForTransform(
+            self.base_frame,
+            self.odom_frame,
+            data.header.stamp,
+            rospy.Duration(0.5),
+        )
+        if not (
+            self.tf_listener.canTransform(
+                self.base_frame, data.header.frame_id, data.header.stamp
+            )
+        ):
             return
 
-        # calculate the pose of the laser distance sensor 
+        # calculate the pose of the laser distance sensor
         p = PoseStamped(
-            header=Header(stamp=rospy.Time(0),
-                          frame_id=data.header.frame_id))
+            header=Header(stamp=rospy.Time(0), frame_id=data.header.frame_id)
+        )
 
         self.laser_pose = self.tf_listener.transformPose(self.base_frame, p)
 
         # determine where the robot thinks it is based on its odometry
         p = PoseStamped(
-            header=Header(stamp=data.header.stamp,
-                          frame_id=self.base_frame),
-            pose=Pose())
+            header=Header(stamp=data.header.stamp, frame_id=self.base_frame),
+            pose=Pose(),
+        )
 
         self.odom_pose = self.tf_listener.transformPose(self.odom_frame, p)
 
@@ -217,7 +213,6 @@ class ParticleFilter:
         if not self.odom_pose_last_motion_update:
             self.odom_pose_last_motion_update = self.odom_pose
             return
-
 
         if self.particle_cloud:
 
@@ -230,9 +225,11 @@ class ParticleFilter:
             curr_yaw = get_yaw_from_pose(self.odom_pose.pose)
             old_yaw = get_yaw_from_pose(self.odom_pose_last_motion_update.pose)
 
-            if (np.abs(curr_x - old_x) > self.lin_mvmt_threshold or 
-                np.abs(curr_y - old_y) > self.lin_mvmt_threshold or
-                np.abs(curr_yaw - old_yaw) > self.ang_mvmt_threshold):
+            if (
+                np.abs(curr_x - old_x) > self.lin_mvmt_threshold
+                or np.abs(curr_y - old_y) > self.lin_mvmt_threshold
+                or np.abs(curr_yaw - old_yaw) > self.ang_mvmt_threshold
+            ):
 
                 # This is where the main logic of the particle filter is carried out
 
@@ -251,21 +248,17 @@ class ParticleFilter:
 
                 self.odom_pose_last_motion_update = self.odom_pose
 
-
-
     def update_estimated_robot_pose(self):
         # based on the particles within the particle cloud, update the robot pose estimate
-        
+
         # TODO
+        pass
 
-
-    
     def update_particle_weights_with_measurement_model(self, data):
 
         # TODO
 
-
-        
+        pass
 
     def update_particles_with_motion_model(self):
 
@@ -274,20 +267,11 @@ class ParticleFilter:
 
         # TODO
 
+        pass
 
 
-if __name__=="__main__":
-    
+if __name__ == "__main__":
 
     pf = ParticleFilter()
 
     rospy.spin()
-
-
-
-
-
-
-
-
-
