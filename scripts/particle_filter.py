@@ -17,7 +17,8 @@ from numpy.random import random_sample
 import math
 from copy import deepcopy
 
-from random import randint, random
+from random import randint, random, choice
+import math
 
 
 def get_yaw_from_pose(p):
@@ -57,8 +58,12 @@ class Particle:
 
 
 class ParticleFilter:
-    def __init__(self):
-
+    def __init__(self, test_mode=False):
+        n_angles = 4
+        self.angles = [i * math.tau / n_angles for i in range(n_angles)]
+        # prevents initialization to test functions individually
+        if test_mode:
+            return
         # once everything is setup initialized will be set to true
         self.initialized = False
 
@@ -76,7 +81,7 @@ class ParticleFilter:
         self.occupancy_field = None
 
         # the number of particles used in the particle filter
-        self.num_particles = 10000
+        self.num_particles = 100
 
         # initialize the particle cloud array
         self.particle_cloud = []
@@ -120,22 +125,50 @@ class ParticleFilter:
     def get_map(self, data):
 
         self.map = data
-        print(data)
-        self.occupancy_field = OccupancyField(data)
+        # self.occupancy_field = OccupancyField(data)
+
+        self.occupancy_field = [i for i, x in enumerate(data.data) if x == 0]
+
+    def _get_pose_from_index(self, index):
+        width = self.map.info.width
+        resolution = self.map.info.resolution
+        origin = self.map.info.origin
+        x_offset = index % width * resolution
+        y_offset = index // width * resolution
+
+        pose = Pose()
+        pose.position.x = origin.position.x + x_offset
+        pose.position.y = origin.position.y + y_offset
+        orientation = quaternion_from_euler(0, 0, choice(self.angles))
+        pose.orientation.x = orientation[0]
+        pose.orientation.y = orientation[1]
+        pose.orientation.z = orientation[2]
+        pose.orientation.w = orientation[3]
+
+        return pose
 
     def initialize_particle_cloud(self):
-
-        # TODO
+        # makes sure we have data before proceeding
+        while self.occupancy_field is None:
+            pass
+        probabilities = [1 / len(self.occupancy_field)] * len(
+            self.occupancy_field
+        )
+        chosen_particles = draw_random_sample(
+            self.occupancy_field, probabilities, self.num_particles
+        )
+        self.particle_cloud = [
+            Particle(self._get_pose_from_index(i), 1) for i in chosen_particles
+        ]
 
         self.normalize_particles()
-
         self.publish_particle_cloud()
 
     def normalize_particles(self):
         # make all the particle weights sum to 1.0
-
-        # TODO
-        pass
+        sum_of_weights = sum(particle.w for particle in self.particle_cloud)
+        for particle in self.particle_cloud:
+            particle.w /= sum_of_weights
 
     def publish_particle_cloud(self):
 
@@ -143,12 +176,13 @@ class ParticleFilter:
         particle_cloud_pose_array.header = Header(
             stamp=rospy.Time.now(), frame_id=self.map_topic
         )
-        particle_cloud_pose_array.poses
+        particle_cloud_pose_array.poses = []
 
         for part in self.particle_cloud:
             particle_cloud_pose_array.poses.append(part.pose)
 
         self.particles_pub.publish(particle_cloud_pose_array)
+        print("test")
 
     def publish_estimated_robot_pose(self):
 
