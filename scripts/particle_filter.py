@@ -31,6 +31,14 @@ def get_yaw_from_pose(p):
     return yaw
 
 
+def set_orientation_from_yaw(yaw, pose):
+    orientation = quaternion_from_euler(0, 0, yaw)
+    pose.orientation.x = orientation[0]
+    pose.orientation.y = orientation[1]
+    pose.orientation.z = orientation[2]
+    pose.orientation.w = orientation[3]
+
+
 def draw_random_sample(choices, probabilities, n):
     """Return a random sample of n elements from the set choices with the specified probabilities
     choices: the values to sample from represented as a list
@@ -117,7 +125,7 @@ class ParticleFilter:
         self.tf_listener = TransformListener()
         self.tf_broadcaster = TransformBroadcaster()
 
-        # intialize the particle cloud
+        # initialize the particle cloud
         self.initialize_particle_cloud()
 
         self.initialized = True
@@ -139,11 +147,7 @@ class ParticleFilter:
         pose = Pose()
         pose.position.x = origin.position.x + x_offset
         pose.position.y = origin.position.y + y_offset
-        orientation = quaternion_from_euler(0, 0, choice(self.angles))
-        pose.orientation.x = orientation[0]
-        pose.orientation.y = orientation[1]
-        pose.orientation.z = orientation[2]
-        pose.orientation.w = orientation[3]
+        set_orientation_from_yaw(choice(self.angles), pose)
 
         return pose
 
@@ -299,9 +303,22 @@ class ParticleFilter:
         # based on the how the robot has moved (calculated from its odometry), we'll  move
         # all of the particles correspondingly
 
-        # TODO
+        # TODO tests
+        curr_x = self.odom_pose.pose.position.x
+        old_x = self.odom_pose_last_motion_update.pose.position.x
+        curr_y = self.odom_pose.pose.position.y
+        old_y = self.odom_pose_last_motion_update.pose.position.y
+        curr_yaw = get_yaw_from_pose(self.odom_pose.pose)
+        old_yaw = get_yaw_from_pose(self.odom_pose_last_motion_update.pose)
 
-        pass
+        for particle in self.particle_cloud:
+            particle.pose.position.x += curr_x - old_x
+            particle.pose.position.y += curr_y - old_y
+            new_yaw = get_yaw_from_pose(particle.pose) + (curr_yaw - old_yaw)
+            set_orientation_from_yaw(
+                new_yaw,
+                particle.pose,
+            )
 
 
 if __name__ == "__main__":
