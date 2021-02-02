@@ -12,6 +12,8 @@ from tf import TransformListener
 from tf import TransformBroadcaster
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
+from likelihood_field import LikelihoodField
+
 import numpy as np
 from numpy.random import random_sample
 import math
@@ -54,6 +56,12 @@ def draw_random_sample(choices, probabilities, n):
         samples.append(deepcopy(choices[int(i)]))
     return samples
 
+def compute_prob_zero_centered_gaussian(dist, sd):
+    """ Takes in distance from zero (dist) and standard deviation (sd) for gaussian
+        and returns probability (likelihood) of observation """
+    c = 1.0 / (sd * math.sqrt(2 * math.pi))
+    prob = c * math.exp((-math.pow(dist,2))/(2 * math.pow(sd, 2)))
+    return prob
 
 class Particle:
     def __init__(self, pose, w):
@@ -294,9 +302,50 @@ class ParticleFilter:
 
     def update_particle_weights_with_measurement_model(self, data):
 
-        # TODO
+        # TODO tests
 
-        pass
+        # decided to use likelihood field bc computational tractable means
+        # to find robot position
+
+        # intialize angle to look for particle & robot scan data
+        direction_index_list = [0, 90, 180, 270]
+        z = data.ranges
+
+        # loop through every particle
+        for particle in self.particle_cloud:
+            q = 1
+            
+            for ang in direction_index_list:
+                
+                # if distance outside of range skip this value
+                if z[ang] > 3.5:
+                    continue
+                
+                # get position of to check for object from particle's curr
+                # position & yaw
+                x = particle.pose.position.x
+                y = particle.pose.position.y
+                theta =get_yaw_from_pose(particle.pose)
+
+                # convert ang to radians
+                ang_rad = ang * math.pi /180.0
+
+                # calculate particle's location and orientation from laser scen
+                x_k = x + z[ang] * math.cos(theta + ang_rad)
+                y_k = x + z[ang] * math.sin(theta + ang_rad)
+
+                # calculate distance between predicted particle laser scane & closest object
+                dist = LikelihoodField.get_closest_obstacle_distance(x_k, y_k)
+
+                # compute probability with zero-gaussian & sd = 0.1 
+                # set new q
+                sd = 0.1
+                q *= compute_prob_zero_centered_gaussian(dist, sd)
+            
+            particle.w = q
+            
+
+        
 
     def update_particles_with_motion_model(self):
 
