@@ -214,7 +214,7 @@ class ParticleFilter:
 
         # resample particles to create new particle cloud
         self.particle_cloud = draw_random_sample(
-            self.particle_cloud, weights, self.num_particles
+            self.particle_cloud, weights, self.num_particles-1
         )
         
 
@@ -315,12 +315,12 @@ class ParticleFilter:
         for particle in self.particle_cloud:
             x_mean += particle.pose.position.x
             y_mean += particle.pose.position.y
-            theta += get_yaw_from_pose(particle.pose)
+            theta_mean += get_yaw_from_pose(particle.pose)
 
         # set robot pose to mean values above
         self.robot_estimate.position.x = x_mean/ self.num_particles
         self.robot_estimate.position.y = y_mean/ self.num_particles
-        set_orientation_from_yaw(theta/self.num_particles, self.robot_estimate)
+        set_orientation_from_yaw(theta_mean/self.num_particles, self.robot_estimate)
 
     def update_particle_weights_with_measurement_model(self, data):
 
