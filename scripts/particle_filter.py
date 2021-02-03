@@ -354,10 +354,11 @@ class ParticleFilter:
 
                 # calculate particle's location and orientation from laser scen
                 x_k = x + z[ang] * math.cos(theta + ang_rad)
-                y_k = x + z[ang] * math.sin(theta + ang_rad)
+                y_k = y + z[ang] * math.sin(theta + ang_rad)
 
                 # calculate distance between predicted particle laser scane & closest object
-                dist = LikelihoodField.get_closest_obstacle_distance(x_k, y_k)
+                likelihoodfield = LikelihoodField()
+                dist = likelihoodfield.get_closest_obstacle_distance(x_k, y_k)
 
                 # compute probability with zero-gaussian & sd = 0.1 
                 # set new q
