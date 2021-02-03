@@ -206,9 +206,17 @@ class ParticleFilter:
         self.robot_estimate_pub.publish(robot_pose_estimate_stamped)
 
     def resample_particles(self):
+        """ resamples particle cloud based with probability based on weight"""
+        # TODO test
+        
+        # get list of weights of particles (to be used as probability)
+        weights = [particle.w for particle in self.particle_cloud]
 
-        # TODO
-        pass
+        # resample particles to create new particle cloud
+        self.particle_cloud = draw_random_sample(
+            self.particle_cloud, weights, self.num_particles
+        )
+        
 
     def robot_scan_received(self, data):
 
@@ -296,9 +304,23 @@ class ParticleFilter:
 
     def update_estimated_robot_pose(self):
         # based on the particles within the particle cloud, update the robot pose estimate
+        # get the mean of the turtlebot position
 
-        # TODO
-        pass
+        # TODO test
+
+        # initialize and sum values for x,y, and theta across all particles
+        x_mean = 0
+        y_mean = 0
+        theta_mean = 0
+        for particle in self.particle_cloud:
+            x_mean += particle.pose.position.x
+            y_mean += particle.pose.position.y
+            theta += get_yaw_from_pose(particle.pose)
+
+        # set robot pose to mean values above
+        self.robot_estimate.position.x = x_mean/ self.num_particles
+        self.robot_estimate.position.y = y_mean/ self.num_particles
+        set_orientation_from_yaw(theta/self.num_particles, self.robot_estimate)
 
     def update_particle_weights_with_measurement_model(self, data):
 
