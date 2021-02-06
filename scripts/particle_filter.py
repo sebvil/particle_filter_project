@@ -21,6 +21,7 @@ from copy import deepcopy
 
 from random import randint, random, choice
 import math
+import time
 
 
 def get_yaw_from_pose(p):
@@ -97,7 +98,7 @@ class ParticleFilter:
         self.occupancy_field = None
 
         # the number of particles used in the particle filter
-        self.num_particles = 100
+        self.num_particles = 5000
 
         # initialize the particle cloud array
         self.particle_cloud = []
@@ -137,6 +138,9 @@ class ParticleFilter:
         self.initialize_particle_cloud()
 
         self.initialized = True
+
+        # initialize likelihood field
+        self.likelihoodfield = LikelihoodField()
 
     def get_map(self, data):
 
@@ -210,11 +214,11 @@ class ParticleFilter:
         # TODO test
         
         # get list of weights of particles (to be used as probability)
-        weights = [particle.w for particle in self.particle_cloud]
+        weights = [float(particle.w) for particle in self.particle_cloud]
 
         # resample particles to create new particle cloud
         self.particle_cloud = draw_random_sample(
-            self.particle_cloud, weights, self.num_particles-1
+            self.particle_cloud, weights, self.num_particles
         )
         
 
@@ -286,7 +290,7 @@ class ParticleFilter:
             ):
 
                 # This is where the main logic of the particle filter is carried out
-
+                start_time = time.time()
                 self.update_particles_with_motion_model()
 
                 self.update_particle_weights_with_measurement_model(data)
@@ -300,6 +304,8 @@ class ParticleFilter:
                 self.publish_particle_cloud()
                 self.publish_estimated_robot_pose()
 
+                processing_time = time.time() - start_time)
+                
                 self.odom_pose_last_motion_update = self.odom_pose
 
     def update_estimated_robot_pose(self):
@@ -357,8 +363,12 @@ class ParticleFilter:
                 y_k = y + z[ang] * math.sin(theta + ang_rad)
 
                 # calculate distance between predicted particle laser scane & closest object
-                likelihoodfield = LikelihoodField()
-                dist = likelihoodfield.get_closest_obstacle_distance(x_k, y_k)
+                dist = self.likelihoodfield.get_closest_obstacle_distance(x_k, y_k)
+
+                # if the particle is out of map boundaries nan is returned
+                # thus we skip over particles that return nan
+                if math.isnan(dist):
+                    continue
 
                 # compute probability with zero-gaussian & sd = 0.1 
                 # set new q
