@@ -198,7 +198,6 @@ class ParticleFilter:
             particle_cloud_pose_array.poses.append(part.pose)
 
         self.particles_pub.publish(particle_cloud_pose_array)
-        print("test")
 
     def publish_estimated_robot_pose(self):
 
@@ -304,7 +303,7 @@ class ParticleFilter:
                 self.publish_particle_cloud()
                 self.publish_estimated_robot_pose()
 
-                processing_time = time.time() - start_time)
+                processing_time = time.time() - start_time
                 
                 self.odom_pose_last_motion_update = self.odom_pose
 

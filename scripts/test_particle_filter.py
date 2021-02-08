@@ -2,6 +2,7 @@
 """Tests for particle_filter.py."""
 
 import unittest
+from unittest.mock import Mock
 
 import particle_filter
 from nav_msgs.msg import OccupancyGrid
@@ -79,6 +80,35 @@ class TestParticleFilter(unittest.TestCase):
             self.particle_filter.particle_cloud, normalized_weights
         ):
             self.assertAlmostEqual(particle.w, w)
+
+    def test_update_particle_weights_with_measurement_model(self):
+        self.particle_filter.particle_cloud = [
+            particle_filter.Particle(Pose(), 1) 
+        ]
+        data = particle_filter.LaserScan()
+        data.ranges = [
+            0 for i in range(360)
+        ]
+
+        # create a mock of the likelihood field to set return value of
+        # get_closest_object_distance.return value
+        self.particle_filter.likelihoodfield = Mock()
+        self.particle_filter.likelihoodfield.get_closest_obstacle_distance.return_value = 0.1
+
+        # make mock of gaussian
+        particle_filter.compute_prob_zero_centered_gaussian = Mock()
+        particle_filter.compute_prob_zero_centered_gaussian.return_value = 10
+
+        self.particle_filter.update_particle_weights_with_measurement_model(data)
+
+        w_expected = 10000
+
+        part = self.particle_filter.particle_cloud[0]
+
+        self.assertAlmostEqual(w_expected, part.w)
+
+
+
 
 
 if __name__ == "__main__":
