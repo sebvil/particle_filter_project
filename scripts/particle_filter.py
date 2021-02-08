@@ -210,7 +210,6 @@ class ParticleFilter:
 
     def resample_particles(self):
         """ resamples particle cloud based with probability based on weight"""
-        # TODO test
         
         # get list of weights of particles (to be used as probability)
         weights = [float(particle.w) for particle in self.particle_cloud]
@@ -311,7 +310,6 @@ class ParticleFilter:
         # based on the particles within the particle cloud, update the robot pose estimate
         # get the mean of the turtlebot position
 
-        # TODO test
 
         # initialize and sum values for x,y, and theta across all particles
         x_mean = 0
@@ -329,7 +327,6 @@ class ParticleFilter:
 
     def update_particle_weights_with_measurement_model(self, data):
 
-        # TODO tests
 
         # decided to use likelihood field bc computational tractable means
         # to find robot position
@@ -384,7 +381,7 @@ class ParticleFilter:
         # based on the how the robot has moved (calculated from its odometry), we'll  move
         # all of the particles correspondingly
 
-        # TODO tests
+
         curr_x = self.odom_pose.pose.position.x
         old_x = self.odom_pose_last_motion_update.pose.position.x
         curr_y = self.odom_pose.pose.position.y
