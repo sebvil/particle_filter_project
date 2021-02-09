@@ -72,3 +72,59 @@ Thursday Feb 4th.
 `normalize_particles`, `resample_particles`, and `update_estimated_robot_pose`
 — by Friday Feb 5th.
 
+
+# Writeup
+
+## Project Objectives
+
+The objectives of this project were to gain experience and knowledge with the
+problem of robot localization. The goal was to use a probabilistic approach
+to solve this problem, specifically, the particle filter algorithm.
+
+## High Level Description
+
+
+## Particle Filter Algorithm
+
+### Movement
+
+The movement of the particles is handled by the functions `robot_scan_received`
+and `update_particles_with_motion_model`.
+
+- `robot_scan_received`: first, this function checks to make sure that some 
+  conditions pass, such as the particle cloud being initialized, having a 
+  previous odometer pose, and having displaced enough to update the particles. 
+  If these conditions pass, the function makes a call to 
+  `update_particles_with_motion_model`, which updates the pose of each particle.
+- `update_particles_with_motion_model`: for all the particles in the particle 
+  cloud, this function will update the x and y positions and the yaw of each 
+  particle. The change in each direction is drawn from a $N(n, 0.1^2n^2)$ 
+  distribution, where $n$ is the difference in the odometry readings for the 
+  desired direction.
+
+### Computation of importance weights
+
+- `normalize_particles`: this function divided the weight of each particle by 
+  the sum of the weights of all particles, effectively making the sum of all 
+  weights be 1.
+
+### Resampling
+
+
+## Challenges
+
+## Future work
+
+
+## Takeaways
+
+- The implementation plan was definitely very useful for our group. It helped us
+  gain a basic understanding of the tasks we were supposed to do and the 
+  particle filter algorithm before we began working on it. Additionally, it gave
+  us the opportunity to split up the work fairly ahead of time, and by
+  setting deadlines, we were able to have a strong basis for the project days
+  before the due date.
+
+
+# Demo
+![Particle filter demo](particle_filter.gif)
