@@ -1,27 +1,21 @@
 #!/usr/bin/env python3
 
-import rospy
-
-from nav_msgs.msg import OccupancyGrid
-from geometry_msgs.msg import Quaternion, Point, Pose, PoseArray, PoseStamped
-from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Header, String
-
-import tf
-from tf import TransformListener
-from tf import TransformBroadcaster
-from tf.transformations import quaternion_from_euler, euler_from_quaternion
-
-from likelihood_field import LikelihoodField
-
-import numpy as np
-from numpy.random import random_sample
-import math
-from copy import deepcopy
-
-from random import randint, random, choice
 import math
 import time
+from copy import deepcopy
+from random import choice
+
+import numpy as np
+import rospy
+from geometry_msgs.msg import Pose, PoseArray, PoseStamped
+from nav_msgs.msg import OccupancyGrid
+from numpy.random import random_sample
+from sensor_msgs.msg import LaserScan
+from std_msgs.msg import Header
+from tf import TransformBroadcaster, TransformListener
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+
+from likelihood_field import LikelihoodField
 
 
 def get_yaw_from_pose(p):
@@ -57,12 +51,14 @@ def draw_random_sample(choices, probabilities, n):
         samples.append(deepcopy(choices[int(i)]))
     return samples
 
+
 def compute_prob_zero_centered_gaussian(dist, sd):
-    """ Takes in distance from zero (dist) and standard deviation (sd) for gaussian
-        and returns probability (likelihood) of observation """
+    """Takes in distance from zero (dist) and standard deviation (sd) for gaussian
+    and returns probability (likelihood) of observation"""
     c = 1.0 / (sd * math.sqrt(2 * math.pi))
-    prob = c * math.exp((-math.pow(dist,2))/(2 * math.pow(sd, 2)))
+    prob = c * math.exp((-math.pow(dist, 2)) / (2 * math.pow(sd, 2)))
     return prob
+
 
 class Particle:
     def __init__(self, pose, w):
@@ -145,11 +141,14 @@ class ParticleFilter:
     def get_map(self, data):
 
         self.map = data
-        # self.occupancy_field = OccupancyField(data)
-
         self.occupancy_field = [i for i, x in enumerate(data.data) if x == 0]
 
     def _get_pose_from_index(self, index):
+        """Computes the pose based on index of an OccupancyGrid.data list.
+
+        The position is calculated from the index and map properties, and the
+        orientation is selected at random from self.angles.
+        """
         width = self.map.info.width
         resolution = self.map.info.resolution
         origin = self.map.info.origin
@@ -167,6 +166,8 @@ class ParticleFilter:
         # makes sure we have data before proceeding
         while self.occupancy_field is None:
             pass
+
+        # all particles have the same probability of being drawn
         probabilities = [1 / len(self.occupancy_field)] * len(
             self.occupancy_field
         )
@@ -210,7 +211,7 @@ class ParticleFilter:
 
     def resample_particles(self):
         """ resamples particle cloud based with probability based on weight"""
-        
+
         # get list of weights of particles (to be used as probability)
         weights = [float(particle.w) for particle in self.particle_cloud]
 
@@ -218,7 +219,6 @@ class ParticleFilter:
         self.particle_cloud = draw_random_sample(
             self.particle_cloud, weights, self.num_particles
         )
-        
 
     def robot_scan_received(self, data):
 
@@ -234,8 +234,9 @@ class ParticleFilter:
         ):
             return
 
-        # wait for a little bit for the transform to become avaliable (in case the scan arrives
-        # a little bit before the odom to base_footprint transform was updated)
+        # wait for a little bit for the transform to become avaliable (in case
+        # the scan arrives a little bit before the odom to base_footprint
+        # transform was updated)
         self.tf_listener.waitForTransform(
             self.base_frame,
             self.odom_frame,
@@ -303,13 +304,12 @@ class ParticleFilter:
                 self.publish_estimated_robot_pose()
 
                 processing_time = time.time() - start_time
-                
+
                 self.odom_pose_last_motion_update = self.odom_pose
 
     def update_estimated_robot_pose(self):
         # based on the particles within the particle cloud, update the robot pose estimate
         # get the mean of the turtlebot position
-
 
         # initialize and sum values for x,y, and theta across all particles
         x_mean = 0
@@ -321,12 +321,13 @@ class ParticleFilter:
             theta_mean += get_yaw_from_pose(particle.pose)
 
         # set robot pose to mean values above
-        self.robot_estimate.position.x = x_mean/ self.num_particles
-        self.robot_estimate.position.y = y_mean/ self.num_particles
-        set_orientation_from_yaw(theta_mean/self.num_particles, self.robot_estimate)
+        self.robot_estimate.position.x = x_mean / self.num_particles
+        self.robot_estimate.position.y = y_mean / self.num_particles
+        set_orientation_from_yaw(
+            theta_mean / self.num_particles, self.robot_estimate
+        )
 
     def update_particle_weights_with_measurement_model(self, data):
-
 
         # decided to use likelihood field bc computational tractable means
         # to find robot position
@@ -338,49 +339,47 @@ class ParticleFilter:
         # loop through every particle
         for particle in self.particle_cloud:
             q = 1
-            
+
             for ang in direction_index_list:
-                
+
                 # if distance outside of range skip this value
                 if z[ang] > 3.5:
                     continue
-                
+
                 # get position of to check for object from particle's curr
                 # position & yaw
                 x = particle.pose.position.x
                 y = particle.pose.position.y
-                theta =get_yaw_from_pose(particle.pose)
+                theta = get_yaw_from_pose(particle.pose)
 
                 # convert ang to radians
-                ang_rad = ang * math.pi /180.0
+                ang_rad = ang * math.pi / 180.0
 
                 # calculate particle's location and orientation from laser scen
                 x_k = x + z[ang] * math.cos(theta + ang_rad)
                 y_k = y + z[ang] * math.sin(theta + ang_rad)
 
                 # calculate distance between predicted particle laser scane & closest object
-                dist = self.likelihoodfield.get_closest_obstacle_distance(x_k, y_k)
+                dist = self.likelihoodfield.get_closest_obstacle_distance(
+                    x_k, y_k
+                )
 
                 # if the particle is out of map boundaries nan is returned
                 # thus we skip over particles that return nan
                 if math.isnan(dist):
                     continue
 
-                # compute probability with zero-gaussian & sd = 0.1 
+                # compute probability with zero-gaussian & sd = 0.1
                 # set new q
                 sd = 0.1
                 q *= compute_prob_zero_centered_gaussian(dist, sd)
-            
-            particle.w = q
-            
 
-        
+            particle.w = q
 
     def update_particles_with_motion_model(self):
 
         # based on the how the robot has moved (calculated from its odometry), we'll  move
         # all of the particles correspondingly
-
 
         curr_x = self.odom_pose.pose.position.x
         old_x = self.odom_pose_last_motion_update.pose.position.x
@@ -389,10 +388,22 @@ class ParticleFilter:
         curr_yaw = get_yaw_from_pose(self.odom_pose.pose)
         old_yaw = get_yaw_from_pose(self.odom_pose_last_motion_update.pose)
 
+        # initialize a random number generator
+        rng = np.random.default_rng()
+
+        # update the position of each particle, based on a normal distribution
+        # with the difference in position from the odometry as the mean, and
+        # 10% of this value as the standard deviation.
         for particle in self.particle_cloud:
-            particle.pose.position.x += curr_x - old_x
-            particle.pose.position.y += curr_y - old_y
-            new_yaw = get_yaw_from_pose(particle.pose) + (curr_yaw - old_yaw)
+            particle.pose.position.x += rng.normal(
+                curr_x - old_x, abs(curr_x - old_x) * 0.1
+            )
+            particle.pose.position.y += rng.normal(
+                curr_y - old_y, abs(curr_y - old_y) * 0.1
+            )
+            new_yaw = get_yaw_from_pose(particle.pose) + rng.normal(
+                curr_yaw - old_yaw, abs(curr_yaw - old_yaw) * 0.1
+            )
             set_orientation_from_yaw(
                 new_yaw,
                 particle.pose,
